@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多機能QRコード生成ツール</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            text-align: left; /* 入力を左寄せに */
+        }
+
+        h1 {
+            font-size: 2em;
+            color: #34495e;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            text-align: center;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+            font-size: 0.9em;
+        }
+        
+        select, input[type="text"], input[type="email"], input[type="tel"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        #qrcode-area {
+            text-align: center; /* QRコードエリアを中央に */
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        #qrcode {
+            display: inline-block;
+            border: 5px solid #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .download-button {
+            background-color: #27ae60;
+            margin-top: 10px;
+        }
+        .download-button:hover {
+            background-color: #1e8449;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>多機能 QRコード生成ツール 📲</h1>
+
+        <div class="input-group">
+            <label for="input-type-select">生成したいQRコードのタイプを選択:</label>
+            <select id="input-type-select">
+                <option value="text">テキスト/URL</option>
+                <option value="tel">電話番号</option>
+                <option value="email">メールアドレス</option>
+                <option value="wifi">Wi-Fi接続情報</option>
+            </select>
+        </div>
+
+        <div id="dynamic-input-area">
+            </div>
+
+        <button onclick="generateQR()">QRコードを生成 / 更新</button>
+
+        <div id="qrcode-area">
+            <h2>生成されたQRコード</h2>
+            <div id="qrcode"></div>
+            <button class="download-button" id="download-qr-button">PNGでダウンロード</button>
+        </div>
+    </div>
+
+    <script>
+        const qrcodeDiv = document.getElementById("qrcode");
+        const inputTypeSelect = document.getElementById("input-type-select");
+        const dynamicInputArea = document.getElementById("dynamic-input-area");
+        const downloadButton = document.getElementById("download-qr-button");
+        let qrcodeInstance = null;
+        let currentInputType = 'text';
+
+        // --- 1. 入力タイプ切り替えのHTML生成 ---
+
+        function updateInputFields() {
+            currentInputType = inputTypeSelect.value;
+            dynamicInputArea.innerHTML = ''; // エリアをクリア
+
+            let htmlContent = '';
+
+            switch (currentInputType) {
+                case 'text':
+                    htmlContent = `
+                        <div class="input-group">
+                            <label for="text-input">テキストまたはURL:</label>
+                            <input type="text" id="text-input" placeholder="例: https://example.com" value="https://example.com">
+                        </div>`;
+                    break;
+                case 'email':
+                    htmlContent = `
+                        <div class="input-group">
+                            <label for="email-addr-input">メールアドレス:</label>
+                            <input type="email" id="email-addr-input" placeholder="例: info@example.com">
+                        </div>
+                        <div class="input-group">
+                            <label for="email-subject-input">件名 (オプション):</label>
+                            <input type="text" id="email-subject-input" placeholder="例: 問い合わせ">
+                        </div>`;
+                    break;
+                case 'tel':
+                    htmlContent = `
+                        <div class="input-group">
+                            <label for="tel-input">電話番号:</label>
+                            <input type="tel" id="tel-input" placeholder="例: 09012345678">
+                        </div>`;
+                    break;
+                case 'wifi':
+                    htmlContent = `
+                        <div class="input-group">
+                            <label for="wifi-ssid-input">SSID (ネットワーク名):</label>
+                            <input type="text" id="wifi-ssid-input" placeholder="例: MyHomeNetwork">
+                        </div>
+                        <div class="input-group">
+                            <label for="wifi-pass-input">パスワード:</label>
+                            <input type="password" id="wifi-pass-input" placeholder="パスワードを入力">
+                        </div>
+                        <div class="input-group">
+                            <label for="wifi-type-select">暗号化タイプ:</label>
+                            <select id="wifi-type-select">
+                                <option value="WPA">WPA/WPA2</option>
+                                <option value="WEP">WEP</option>
+                                <option value="nopass">パスワードなし</option>
+                            </select>
+                        </div>`;
+                    break;
+            }
+            dynamicInputArea.innerHTML = htmlContent;
+
+            // 新しく作成したフォーム要素にイベントリスナーを再設定
+            const inputs = dynamicInputArea.querySelectorAll('input, select');
+            inputs.forEach(input => input.addEventListener('input', generateQR));
+            
+            // フィールドが更新されたらQRコードを生成し直す
+            generateQR();
+        }
+
+        // --- 2. QRコードデータの組み立て ---
+
+        function getQRData() {
+            let data = '';
+            
+            switch (currentInputType) {
+                case 'text':
+                    const textInput = document.getElementById('text-input');
+                    data = textInput ? textInput.value : '';
+                    break;
+                case 'email':
+                    const emailAddr = document.getElementById('email-addr-input') ? document.getElementById('email-addr-input').value : '';
+                    const emailSubject = document.getElementById('email-subject-input') ? document.getElementById('email-subject-input').value : '';
+                    // 'mailto:email@example.com?subject=件名' 形式
+                    data = `mailto:${emailAddr}`;
+                    if (emailSubject) {
+                        data += `?subject=${encodeURIComponent(emailSubject)}`;
+                    }
+                    break;
+                case 'tel':
+                    const telInput = document.getElementById('tel-input') ? document.getElementById('tel-input').value : '';
+                    // 'tel:09012345678' 形式
+                    data = `tel:${telInput}`;
+                    break;
+                case 'wifi':
+                    const ssid = document.getElementById('wifi-ssid-input') ? document.getElementById('wifi-ssid-input').value : '';
+                    const pass = document.getElementById('wifi-pass-input') ? document.getElementById('wifi-pass-input').value : '';
+                    const type = document.getElementById('wifi-type-select') ? document.getElementById('wifi-type-select').value : 'WPA';
+                    // 'WIFI:T:タイプ;S:SSID;P:パスワード;;' 形式
+                    if (type === 'nopass') {
+                        data = `WIFI:T:nopass;S:${ssid};;`;
+                    } else {
+                        data = `WIFI:T:${type};S:${ssid};P:${pass};;`;
+                    }
+                    break;
+            }
+            return data;
+        }
+
+        // --- 3. QRコードの生成処理 ---
+
+        function generateQR() {
+            const data = getQRData();
+            
+            if (!data || data.trim() === 'tel:') { // tel:のみの場合も空とみなす
+                qrcodeDiv.innerHTML = '情報を入力してください'; 
+                return;
+            }
+
+            if (qrcodeInstance) {
+                qrcodeDiv.innerHTML = '';
+            }
+
+            qrcodeInstance = new QRCode(qrcodeDiv, {
+                text: data,
+                width: 200, 
+                height: 200,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H 
+            });
+        }
+
+        // --- 4. ダウンロード機能 ---
+
+        function downloadQR() {
+            const canvas = qrcodeDiv.querySelector('canvas');
+            
+            if (canvas) {
+                const dataURL = canvas.toDataURL("image/png");
+                const a = document.createElement('a');
+                a.href = dataURL;
+                
+                let filename = 'qr_code_';
+                // ファイル名にタイプと一部データを使用
+                let base = getQRData().substring(0, 15).replace(/[^a-zA-Z0-9]/g, '_') || 'data';
+                filename = `${currentInputType}_${base}.png`;
+
+                a.download = filename;
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+            } else {
+                alert("QRコードが生成されていません。");
+            }
+        }
+        
+        // --- イベントリスナー設定 ---
+
+        // 入力タイプが変更されたら、フィールドを更新
+        inputTypeSelect.addEventListener('change', updateInputFields);
+        
+        // ダウンロードボタンのクリックイベント
+        downloadButton.addEventListener('click', downloadQR);
+
+        // 初期ロード時に実行
+        window.addEventListener('load', () => {
+            updateInputFields(); // 初期フィールドの表示とQRコード生成
+        });
+    </script>
+
+</body>
+</html>
